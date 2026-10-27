@@ -1,0 +1,3 @@
+# Used only to talk to OUR server (claims, posts, heartbeats). Northdata itself
+# is fetched with the standard library's urllib — never with requests.
+requests==2.32.3

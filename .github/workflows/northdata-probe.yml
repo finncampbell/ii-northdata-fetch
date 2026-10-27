@@ -1,0 +1,32 @@
+# northdata-probe.yml — one-off feasibility probe (spec D10): does THIS
+# repository's GitHub-hosted runner get HTTP 200 from northdata.com with the
+# urllib client, at the relay's pace?
+#
+# What it does: 10 Luxembourg entity pages, 5 person profiles (their URLs read
+# at run time from the entity pages' own JSON-LD — none is written here) and 2
+# company-name searches, one request every 25 s; prints status code, byte
+# count and seconds per request. Every body is discarded: nothing is uploaded,
+# no artifact, no server, no secrets. Manual dispatch only.
+#
+# A 429 on the first requests means the runner class is refused — the route
+# ends there: no disguising, no second client, no retries with other headers.
+name: Northdata probe
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Probe (statuses and timings only)
+        env:
+          DELAY_S: "25"
+        run: python northdata_fetch.py --probe

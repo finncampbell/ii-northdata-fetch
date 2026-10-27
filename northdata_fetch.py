@@ -56,7 +56,10 @@ import urllib.request
 from datetime import datetime, timezone
 from typing import Optional
 
-import requests
+try:
+    import requests                      # our own server only; absent in probe mode (no install step)
+except ImportError:                      # pragma: no cover
+    requests = None                      # type: ignore[assignment]
 
 log = logging.getLogger("northdata_fetch")
 
@@ -327,6 +330,9 @@ def run() -> int:
     token = os.getenv("PIPELINE_INGEST_TOKEN", "")
     if not server or not token:
         log.error("SERVER_URL and PIPELINE_INGEST_TOKEN are required")
+        return 2
+    if requests is None:
+        log.error("the requests package is required in run mode (pip install -r requirements.txt)")
         return 2
     repo = os.getenv("GITHUB_REPOSITORY", "local").split("/")[-1]
     worker_id = f"{repo}-{os.getenv('GITHUB_RUN_ID', str(int(time.time())))}"

@@ -1,0 +1,50 @@
+# northdata-relay.yml — the standing Northdata relay (owner's private repo:
+# docs/specs/northdata_relay_worker.md).
+#
+# Every 6 hours one job claims rows from the server's queues, fetches each
+# page with urllib at one request every 25 s (the server's claim reply sets
+# the pace), posts the raw body to the server — which archives and parses it —
+# and exits cleanly before its 5 h 30 budget. One job at a time; the server
+# enforces the daily ceiling, the pause window and the one-client lease.
+# No artifacts — nothing is kept here.
+#
+# Secrets (repository settings, owner only): PIPELINE_SERVER_URL, PIPELINE_INGEST_TOKEN.
+# GitHub disables cron on public repositories after 60 days without a commit;
+# the monthly sync from the private repository keeps it alive.
+name: Northdata relay
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: northdata-relay
+  cancel-in-progress: false
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 345
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -q -r requirements.txt
+      - name: Relay
+        env:
+          SERVER_URL: ${{ secrets.PIPELINE_SERVER_URL }}
+          PIPELINE_INGEST_TOKEN: ${{ secrets.PIPELINE_INGEST_TOKEN }}
+          DELAY_S: "25"
+          MAX_DELAY_S: "300"
+          MAX_429: "3"
+          MAX_TRANSPORT: "3"
+          BATCH_SIZE: "10"
+          PERSON_EVERY: "4"
+          JOB_BUDGET_MIN: "330"
+          HEARTBEAT_S: "120"
+        run: python northdata_fetch.py

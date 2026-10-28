@@ -31,4 +31,4 @@ script that stamps the line below. GitHub disables scheduled workflows on
 public repositories after 60 days without a commit; the monthly sync keeps the
 schedule alive.
 
-Source commit: ade46931 (investment-intelligence, helper/ii-northdata-fetch/)
+Source commit: 2099c685 (investment-intelligence, helper/ii-northdata-fetch/)

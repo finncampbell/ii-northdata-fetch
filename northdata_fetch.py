@@ -78,6 +78,7 @@ RETRY_AFTER_FALLBACK_S = 30
 TRANSPORT_RETRY_WAIT_S = 60
 LEASE_WAIT_S = 60
 LEASE_WAIT_MAX = 10
+CLAIM_RETRY_MAX = 30          # 30 × 60 s: the daily run's longest database hold seen so far is well under this
 PAUSE_SLEEP_S = 300
 
 # Probe targets: Luxembourg B-numbers (public register ids, no personal data)
@@ -378,6 +379,7 @@ def run() -> int:
     consecutive_transport = 0
     entity_batches = 0
     lease_waits = 0
+    claim_failures = 0
     persons_exhausted = False
     try:
         while True:
@@ -389,9 +391,19 @@ def run() -> int:
             try:
                 claimed = srv.claim(queue, batch, source)
             except requests.RequestException as exc:
-                log.error("claim failed: %s", exc)
-                summary["stop_reason"] = "claim-error"
-                break
+                # The server's daily run can hold its database for minutes
+                # past the claim pause window (job 2 of 2026-10-28 ended at
+                # 06:15 UTC on one failed claim): wait and try again, up to
+                # CLAIM_RETRY_MAX times, before giving the rest of the budget up.
+                claim_failures += 1
+                if claim_failures > CLAIM_RETRY_MAX:
+                    log.error("claim failed %d times: %s", claim_failures, exc)
+                    summary["stop_reason"] = "claim-error"
+                    break
+                log.warning("claim failed (%s) — retrying in %ds (%d/%d)", exc, LEASE_WAIT_S, claim_failures, CLAIM_RETRY_MAX)
+                time.sleep(LEASE_WAIT_S)
+                continue
+            claim_failures = 0
             if "lease_held" in claimed:
                 lease_waits += 1
                 if lease_waits > LEASE_WAIT_MAX:
